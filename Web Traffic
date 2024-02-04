@@ -18,7 +18,7 @@ fk = Faker()
 # Global values for the dataset
 # Example usage:
 # Get user input for continents and weights
-user_input_continents = input("Enter continents (comma-separated, use the appropriate continent codes (AF, AS, EU, NA, OC, SA)): ").replace(" ", "").upper().split(',')
+user_input_continents = input("Enter continents (comma-separated, use the appropriate continent codes (AF, AS, EU, NA, OC, SA)): ").replace(" ", "").upper().split(',')  # I hated this, because I forgot that replace exists, praise Plina the goddess of rubber ducking
 user_input_weights = [float(weight) for weight in input("Enter weights (comma-separated, these are used to determine how often your choices get picked, must add up to 1): ").split(',')]
 
 # user_input_continents = ['NA','EU','AS']
@@ -295,10 +295,13 @@ df['Country'] = df['Continent'].apply(lambda x: random.choice(countries_by_conti
 # df.drop(columns=['Visit Date', 'Visit Start Time','Time on Site', 'Channel Medium','Channel Group','Continent','User Identification','Country'],inplace = True)
 # df.drop(columns=['Visit ID', 'Visitor ID', 'Visit Date', 'Visit Start Time','Time on Site', 'Visits', 'Hits','Page Views','Channel Medium','Left Over Hits', 'Event_buttonclick','Channel Group'],inplace = True)
 # df = df.iloc[:, [0,1,18,2,3,7,12,13,4,5,9,10,11,15,16,17,8]]
+selected_columns = ['Company Name','Continent','Country','Visit ID','Visitor ID','Channel Group','Channel Medium','User Identification','Visit Date','Visit Start Time','Time on Site','Visits','Hits','Page Views',
+                  'Event_buttonclick','Downloads','Video Views','Web Pages']
+df = df.loc [:,selected_columns ]
 print(df)
 print('---------')
 
-df.to_csv(r"C:\Users\algir\Desktop\Hello\output.csv")
+df.to_csv(r"c:\Users\dreik\Desktop\Github Projects\Web-Traffic-Data\output.csv")
 # Hit - A hit is any request to a web server. 
 # Each time a visitor downloads a page, clicks a hyperlink, views a graphic, or performs any other action on a web site, a call is made to the web server. 
 # The web server records each of these requests in a log file.
