@@ -6,6 +6,7 @@ import random
 import numpy as np
 import pycountry
 from pycountry_convert import country_alpha2_to_continent_code, country_name_to_country_alpha2
+import os
 
 # Initialize Faker for generating fake data
 fk = Faker()
@@ -34,8 +35,10 @@ end_date = datetime(2024, 1, 1)
 
 
 #Setting up null data
-
-num_nulls = int(0.3*num_rows)
+min_null_percent = 20
+max_null_percent = 35
+random_null_percent = np.random.uniform(min_null_percent,max_null_percent)
+num_nulls = int(random_null_percent / 100 * num_rows)
 
 #generating null indices randomly
 
@@ -164,6 +167,12 @@ def generate_random_videoviews(row):
         return  np.random.randint(1,max(2,min(5,row_level + 1)))
     else:
         return 0
+    
+
+def generate_random_device():
+    medium = ['Desktop', 'Mobile', 'Tablet'] 
+    weight = [0.8, 0.15, 0.05]
+    return np.random.choice(medium, p = weight)
 
 
 # Function to generate a random continent code based on user-provided continents and weights
@@ -231,6 +240,10 @@ time_on_site = [generate_random_timeonsite() for _ in range(num_rows)]
 #Generating websites separately
 pages = [generate_random_website() for _ in range(num_rows)]
 
+#Generate random device
+
+device = [generate_random_device() for _ in range(num_rows)]
+
 #-------------------------------------------------------------------------------------
 # Constructing the DataFrame
 data = {
@@ -242,7 +255,8 @@ data = {
     'Visit Start Time': visit_start_times,
     'Time on Site': time_on_site,
     'Channel Group': channel_groups,
-    'Web Pages' : pages
+    'Web Pages' : pages,
+    'Device' : device
 }
 df = pd.DataFrame(data)
 
@@ -292,16 +306,19 @@ df['Country'] = df['Continent'].apply(lambda x: random.choice(countries_by_conti
 
 
 
-# df.drop(columns=['Visit Date', 'Visit Start Time','Time on Site', 'Channel Medium','Channel Group','Continent','User Identification','Country'],inplace = True)
-# df.drop(columns=['Visit ID', 'Visitor ID', 'Visit Date', 'Visit Start Time','Time on Site', 'Visits', 'Hits','Page Views','Channel Medium','Left Over Hits', 'Event_buttonclick','Channel Group'],inplace = True)
-# df = df.iloc[:, [0,1,18,2,3,7,12,13,4,5,9,10,11,15,16,17,8]]
+
 selected_columns = ['Company Name','Continent','Country','Visit ID','Visitor ID','Channel Group','Channel Medium','User Identification','Visit Date','Visit Start Time','Time on Site','Visits','Hits','Page Views',
-                  'Event_buttonclick','Downloads','Video Views','Web Pages']
+                    'Event_buttonclick','Downloads','Video Views','Web Pages','Device']
 df = df.loc [:,selected_columns ]
 print(df)
 print('---------')
 
-df.to_csv(r"c:\Users\dreik\Desktop\Github Projects\Web-Traffic-Data\output.csv")
+
+desktop_path = os.path.join(os.path.expanduser("~"),"Desktop")
+output_filename = "output.csv"
+output_path = os.path.join(desktop_path,output_filename)
+
+df.to_csv(output_path, index=False)
 # Hit - A hit is any request to a web server. 
 # Each time a visitor downloads a page, clicks a hyperlink, views a graphic, or performs any other action on a web site, a call is made to the web server. 
 # The web server records each of these requests in a log file.
