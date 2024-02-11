@@ -11,7 +11,7 @@ import os
 # Initialize Faker for generating fake data
 fk = Faker()
 
-# Set seeds for random number generators to ensure reproducibility
+# # Set seeds for random number generators to ensure reproducibility
 # Faker.seed(1234)
 # random.seed(1234)
 # np.random.seed(1234)
@@ -21,18 +21,20 @@ fk = Faker()
 # Get user input for continents and weights
 user_input_continents = input("Enter continents (comma-separated, use the appropriate continent codes (AF, AS, EU, NA, OC, SA)): ").replace(" ", "").upper().split(',')  # I hated this, because I forgot that replace exists, praise Plina the goddess of rubber ducking
 user_input_weights = [float(weight) for weight in input("Enter weights (comma-separated, these are used to determine how often your choices get picked, must add up to 1): ").split(',')]
-
-# user_input_continents = ['NA','EU','AS']
-# user_input_weights = [0.3,0.5,0.2]
-
 num_rows = int(input("Enter the number of Rows you want to generate: "))
 lower_bound = int(input("Enter the lower bound for your random visits to the website: "))
 upper_bound = int(input("Enter the upper bound for your random visit to the website: "))
 
-# Date values for the dataset
-start_date = datetime(2023, 1, 1)
-end_date = datetime(2024, 1, 1)
+#Testing Values
+# user_input_continents = ['NA','EU','AS']
+# user_input_weights = [0.3,0.5,0.2]
+# num_rows = 100000
+# lower_bound = 1
+# upper_bound = 100
 
+# Date values for the dataset
+start_date = datetime(2022, 1, 1)
+end_date = datetime(2024, 1, 1)
 
 #Setting up null data
 min_null_percent = 20
@@ -46,6 +48,7 @@ null_indices = np.random.choice(num_rows, num_nulls, replace=False)
 # creating the dataset
 company_names = [fk.company() if i not in null_indices else None for i in range(num_rows)]
 
+#------------------------------------------------------------- main functions to build out fake skeleton ---------------------------------------------
 
 # Function to generate a random visitor ID
 def generate_random_visitor_id():
@@ -55,24 +58,45 @@ def generate_random_visitor_id():
 def generate_random_visit_id():
     return fk.unique.numerify('##########')
 
+# Function to generate random visit IDs for each row
+def generate_random_visit_ids(row):
+    num_visits = random.randint(1, 5)  # Generate a random number of visits (1 to 5)
+    return [generate_random_visit_id() for _ in range(num_visits)]  # Generate visit IDs
+
+#------------------- Dates and Time on site functions ----------------------------------------------------------------
+
 # Function to generate a random date within a given range
 def generate_random_date(start_date, end_date):
     return fk.date_between_dates(date_start=start_date, date_end=end_date)
 
-# Function to generate a random time
+
+# Function to generate a random visit time
 def generate_random_time():
     return fk.time(pattern="%H:%M:%S", end_datetime=None)
 
-# Function to generate random visit numbers with a skew factor
-def generate_random_visit_number(size, lower_bound, upper_bound, skew_factor=1.6):
-    values = list(range(lower_bound, upper_bound+1))
-    weights = [1/(i ** skew_factor) for i in range(1, len(values)+1)]
-    return random.choices(values, weights=weights, k=size)
+# Function to generate random time on site following a normal distribution
+def generate_random_timeonsite():
+    mean = 75
+    std_dev = 50
+    value = np.random.normal(loc=mean, scale=std_dev)
+    return round(max(15, min(value, 500)))
 
-# Function to generate random hits numbers based on row-level visits
-def generate_random_hits_number(row):
-    max_visits = int(row['Visits'])
-    return random.randint(max_visits+1, max_visits*2)
+#------------------- Generation of HITS ------------------------------------------------------------------------------------------------
+
+# Function to generate hits based on time on site
+def generate_hits(time_on_site):
+    # Define parameters for the distribution
+    
+    mean_hits = 0.3  #adjust this if you want higher number of hits per time on site
+    std_dev_hits = 0.2 #adjust this if you want a higher variance around the "mean"
+    
+    # Calculate the number of hits based on a normal distribution
+    hits = int(np.random.normal(loc=mean_hits, scale=std_dev_hits) * time_on_site)
+    
+    # Ensure hits is at least 1
+    hits = max(1, hits)
+    
+    return hits
 
 # Function to generate random page views based on row-level hits
 def generate_random_page_views(row):
@@ -86,13 +110,6 @@ def generate_random_page_views(row):
     else:
         return np.random.randint(1, max(2, (max_hits // 2)) + 1)
 
-# Function to generate random time on site following a normal distribution
-def generate_random_timeonsite():
-    mean = 75
-    std_dev = 50
-    value = np.random.normal(loc=mean, scale=std_dev)
-    return round(max(15, min(value, 500)))
-
 # Function to generate random event button clicks based on row-level leftover hits
 def generate_random_event_buttonclick(row):
     left_over_hits = row['Left Over Hits']
@@ -103,28 +120,56 @@ def generate_random_event_buttonclick(row):
     else: 
         return np.random.randint(10,max(11, left_over_hits + 1))
 
-def generate_random_website():
-    mediums = ['fakepage.co.uk/main','fakepage.co.uk/aboutus','fakepage.co.uk/products','fakepage.co.uk/boom']
-    weights = [0.5,0.1,0.3,0.1] 
-    return np.random.choice(mediums, p=weights)
-
-
-def generate_random_useridentification(row):
-    row_level = row['Visits']
+#Generating random downloads
+def generate_random_downloads(row):
+    row_level = row['Left Over Hits']
     
-    if row_level == 1:
+    if row_level != 0:
+        return  np.random.randint(1,max(2,min(4,row_level + 1)))
+    else:
+        return 0
+
+#Generating random videoviews
+def generate_random_videoviews(row):
+    row_level = row['Left Over Hits']
+    
+    if row_level != 0:
+        return  np.random.randint(1,max(2,min(5,row_level + 1))) #makes sure that there's no more than left over hits
+    else:
+        return 0
+
+
+#------------------- Generating User Identification------------------------------------------------------------ --------------------------------
+
+# Define a function to check if there's only one visit
+def has_only_one_visit(visit_ids):
+    return len(visit_ids) == 1
+
+#Generating random using identification
+def generate_random_useridentification(row):
+    row_level = row['Has only one']
+    
+    if row_level == True: #If there was only one visit from user, then it's IP address else the other options
         return 'IP Address'
     else:
         medium = ['Known Visitior', 'Marketo']
         weights = [0.8,0.2]
         return np.random.choice(medium, p=weights)
 
+#Generate random website, mediums can be changed and so can be the weights
+def generate_random_website():
+    mediums = ['fakepage.co.uk/main','fakepage.co.uk/aboutus','fakepage.co.uk/products','fakepage.co.uk/products/buy']
+    weights = [0.5,0.05,0.3,0.15] 
+    return np.random.choice(mediums, p=weights)
+
+
+#------------------- Generating Channels ------------------------------------------------------------ --------------------------------
+
 # Function to generate random channel groups based on predefined mediums and weights
 def generate_random_channel_group():
     mediums = ['Paid Search', 'Organic Search', 'Direct', 'Email', 'Organic Social', 'Referral']
     weights = [0.4, 0.2, 0.2, 0.1, 0.05, 0.05] 
     return np.random.choice(mediums, p=weights)
-
 
 
 # Function to generate a random medium based on row-level channel group
@@ -150,30 +195,12 @@ def generate_random_medium(row):
     # Choose a random medium based on weights
     return np.random.choice(mediums, p=weights)
 
-
-def generate_random_downloads(row):
-    row_level = row['Left Over Hits']
-    
-    if row_level != 0:
-        return  np.random.randint(1,max(2,min(4,row_level + 1)))
-    else:
-        return 0
-    
-    
-def generate_random_videoviews(row):
-    row_level = row['Left Over Hits']
-    
-    if row_level != 0:
-        return  np.random.randint(1,max(2,min(5,row_level + 1)))
-    else:
-        return 0
-    
-
 def generate_random_device():
     medium = ['Desktop', 'Mobile', 'Tablet'] 
     weight = [0.8, 0.15, 0.05]
     return np.random.choice(medium, p = weight)
 
+#------------------- Continent Generation, wanted to separate this out for my own clarity --------------------------------
 
 # Function to generate a random continent code based on user-provided continents and weights
 def generate_random_continent_code(continents, weights):
@@ -212,68 +239,47 @@ def get_countries_by_continents(continents):
 selected_continents = user_input_continents
 random_continent = generate_random_continent_code(selected_continents, user_input_weights)
 countries_by_continent = get_countries_by_continents(selected_continents)
+country_names = [random.choice(countries_by_continent[random_continent]) if countries_by_continent.get(random_continent) else None for _ in range(num_rows)]
 
+#------------------------------------------------------------- Separating Value generation into individual rows ---------------------------------------------
 
-#-------------------------------------------------------------------------------------
-
-# Generating channel_groups separately
-channel_groups = [generate_random_channel_group() for _ in range(num_rows)]
-
-# Generating continent names separately
-continent_names = [generate_random_continent_code(user_input_continents, user_input_weights) for _ in range(num_rows)]
-
-# Generating visit IDs separately
-visit_ids = [generate_random_visit_id() for _ in range(num_rows)]
-
-# Generating visitor IDs separately
+# Create DataFrame with visitor IDs
 visitor_ids = [generate_random_visitor_id() for _ in range(num_rows)]
 
 # Generating visit dates separately
 visit_dates = [generate_random_date(start_date, end_date) for _ in range(num_rows)]
 
-# Generating visit start times separately
-visit_start_times = [generate_random_time() for _ in range(num_rows)]
+# Generating continent names separately
+continent_names = [generate_random_continent_code(user_input_continents, user_input_weights) for _ in range(num_rows)]
 
-# Generating time on site separately
-time_on_site = [generate_random_timeonsite() for _ in range(num_rows)]
+#------------------------------------------------------------- Building out Data Frame ---------------------------------------------
 
-#Generating websites separately
-pages = [generate_random_website() for _ in range(num_rows)]
-
-#Generate random device
-
-device = [generate_random_device() for _ in range(num_rows)]
-
-#-------------------------------------------------------------------------------------
-# Constructing the DataFrame
-data = {
-    'Company Name': company_names,
-    'Continent': continent_names,
-    'Visit ID': visit_ids,
-    'Visitor ID': visitor_ids,
-    'Visit Date': visit_dates,
-    'Visit Start Time': visit_start_times,
-    'Time on Site': time_on_site,
-    'Channel Group': channel_groups,
-    'Web Pages' : pages,
-    'Device' : device
-}
+data = {'Company Name' : company_names,
+        'Continent': continent_names,
+        'Country' : country_names,
+        'Visitor ID': visitor_ids,
+        }
 df = pd.DataFrame(data)
 
-#-------------------------------------------------------------------------------------
-# Generate random visit numbers based on specified parameters
-df['Visits'] = generate_random_visit_number(num_rows, lower_bound, upper_bound)
+df['Country'] = df['Continent'].apply(lambda x: random.choice(countries_by_continent.get(x, [])) if countries_by_continent.get(x) else None)
 
-# Generate random hits numbers for each row based on the generated visit numbers
-df['Hits'] = df.apply(generate_random_hits_number, axis=1)
+# Generate random visit IDs for each row
+df['Visit ID'] = df.apply(generate_random_visit_ids, axis=1)
+
+df['Has only one'] = df['Visit ID'].apply(has_only_one_visit)
+
+df = df.explode('Visit ID')
+
+df['Visit Date'] = df.apply(lambda row: generate_random_date(start_date, end_date), axis=1)
+
+df['Visit Start Time'] = df.apply(lambda row: generate_random_time(),axis =1)
+
+df['Time On Site'] = df.apply(lambda row: generate_random_timeonsite(),axis =1)
+
+df['Hits'] = df['Time On Site'].apply(generate_hits)
 
 # Generate random page views for each row based on the generated hits numbers
 df['Page Views'] = df.apply(generate_random_page_views, axis=1)
-
-# Generate random channel medium for each row based on the row-level channel group
-df['Channel Medium'] = df.apply(generate_random_medium, axis=1)
-
-df['User Identification'] = df.apply(generate_random_useridentification,axis = 1)
 
 # Calculate the left-over hits by subtracting page views from hits
 df['Left Over Hits'] = df['Hits'] - df['Page Views']
@@ -294,31 +300,27 @@ df['Left Over Hits'] = df['Left Over Hits'] - df['Downloads']
 
 df['Video Views'] = df.apply(generate_random_videoviews,axis=1)
 
+#Generating random user identification
 
-#Adjusting leftover hits
-df['Left Over Hits'] = df['Left Over Hits'] - df ['Video Views']
+df['User Identification'] = df.apply(generate_random_useridentification,axis = 1)
 
+df['Channel Group'] = df.apply(lambda row:generate_random_channel_group(), axis=1)
 
-#-------------------------------------------------------------------------------------
+df['Channel Medium'] = df.apply(generate_random_medium, axis=1)
 
-# Assign countries to each row based on the generated continent codes
-df['Country'] = df['Continent'].apply(lambda x: random.choice(countries_by_continent.get(x, [])) if countries_by_continent.get(x) else None)
+df['Device'] = df.apply(lambda row: generate_random_device(),axis =1)
 
+df['Web Pages'] = df.apply(lambda row:generate_random_website(), axis=1)
 
+#------------------------------------------------------------- Selecting Columns ---------------------------------------------
 
-
-selected_columns = ['Company Name','Continent','Country','Visit ID','Visitor ID','Channel Group','Channel Medium','User Identification','Visit Date','Visit Start Time','Time on Site','Visits','Hits','Page Views',
+selected_columns = ['Company Name','Continent','Country','Visit ID','Visitor ID','Channel Group','Channel Medium','User Identification','Visit Date','Visit Start Time','Time On Site','Hits','Page Views',
                     'Event_buttonclick','Downloads','Video Views','Web Pages','Device']
 df = df.loc [:,selected_columns ]
 print(df)
-print('---------')
-
 
 desktop_path = os.path.join(os.path.expanduser("~"),"Desktop")
 output_filename = "output.csv"
 output_path = os.path.join(desktop_path,output_filename)
 
 df.to_csv(output_path, index=False)
-# Hit - A hit is any request to a web server. 
-# Each time a visitor downloads a page, clicks a hyperlink, views a graphic, or performs any other action on a web site, a call is made to the web server. 
-# The web server records each of these requests in a log file.
