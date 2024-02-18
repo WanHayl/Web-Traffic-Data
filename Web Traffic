@@ -28,9 +28,10 @@ upper_bound = int(input("Enter the upper bound for your random visit to the webs
 #Testing Values
 # user_input_continents = ['NA','EU','AS']
 # user_input_weights = [0.3,0.5,0.2]
-# num_rows = 100000
+# num_rows = 100_000
 # lower_bound = 1
 # upper_bound = 100
+
 
 # Date values for the dataset
 start_date = datetime(2022, 1, 1)
@@ -48,10 +49,16 @@ null_indices = np.random.choice(num_rows, num_nulls, replace=False)
 # creating the dataset
 company_names = [fk.company() if i not in null_indices else None for i in range(num_rows)]
 
+#Defining Campaigns and their multipliers (they do absolutely nothing at the moment, as the generation should start from dates instead of visitor IDs)
+campaign_months = {"March-Campaign":10,
+                    "June-Campaign" : 5,
+                    "November-Campaign":20}
+
 #------------------------------------------------------------- main functions to build out fake skeleton ---------------------------------------------
 
 # Function to generate a random visitor ID
 def generate_random_visitor_id():
+    # Adjust the number of visitors based on the campaign multiplier
     return fk.unique.numerify('##############')
 
 # Function to generate a random visit ID
@@ -65,9 +72,36 @@ def generate_random_visit_ids(row):
 
 #------------------- Dates and Time on site functions ----------------------------------------------------------------
 
-# Function to generate a random date within a given range
-def generate_random_date(start_date, end_date):
-    return fk.date_between_dates(date_start=start_date, date_end=end_date)
+# The date generation works, I should also note that the multipliers do jack shit at the moment. For them to make sense the building blocks for data should start from dates instead of visitor IDs 
+def generate_single_date_with_campaign(row, start_date, end_date, campaign_months):
+    if random.random() < 0.9:  # 90% chance of generating regular dates
+        visit_date = fk.date_between_dates(date_start=start_date, date_end=end_date)
+        return f"{visit_date},None"  # Format regular date as 'date,None'
+    else:
+        # Choose a random campaign month
+        campaign_month = random.choice(list(campaign_months.keys()))
+        # campaign_name = campaign_month
+        campaign_multiplier =campaign_months[campaign_month]
+
+        if campaign_month == "March-Campaign":
+            # Increase the likelihood of generating dates in March by 50%
+            start_date = datetime(2022, 3, 1)
+            end_date = datetime(2022, 3, 31)
+        elif campaign_month == "June-Campaign":
+            # Increase the likelihood of generating dates in June by 100%
+            start_date = datetime(2023, 6, 1)
+            end_date = datetime(2023, 7, 20)
+        elif campaign_month == "November-Campaign":
+            # Increase the likelihood of generating dates in November by 25%
+            start_date = datetime(2023, 11, 1)
+            end_date = datetime(2023, 11, 10)
+
+        visit_date = fk.date_between_dates(date_start=start_date, date_end=end_date)
+        if random.random()<campaign_multiplier:
+            return f"{visit_date},{campaign_month}"
+            # return f"{visit_date},{campaign_name}"
+        else:
+            return str(visit_date)
 
 
 # Function to generate a random visit time
@@ -157,10 +191,49 @@ def generate_random_useridentification(row):
         return np.random.choice(medium, p=weights)
 
 #Generate random website, mediums can be changed and so can be the weights
+
+web_pages = ['main', 'aboutus', 'products', 'products/electronics', 'products/tools', 'products/misc']
+page_weights = [1, 3, 3, 3, 3] #this excludes the first weight for main, as it will always be included in the journey
+
+total_weight = sum(page_weights)
+normalized_weights = [weight / total_weight for weight in page_weights]
+
 def generate_random_website():
-    mediums = ['fakepage.co.uk/main','fakepage.co.uk/aboutus','fakepage.co.uk/products','fakepage.co.uk/products/buy']
-    weights = [0.5,0.05,0.3,0.15] 
-    return np.random.choice(mediums, p=weights)
+    # Always include the "main" page as the first page
+    journey = ['main']
+
+    # Determine the length of the remaining user journey (number of additional web pages visited)
+    journey_length = np.random.randint(0, 10)  # Randomly choose a length between 0 and 15 (excluding the main page)
+
+    # Randomly select additional web pages for the user journey
+    additional_pages = np.random.choice(web_pages[1:], size=journey_length, replace=True,p=normalized_weights)
+    
+    # Generate a list to keep track of whether a subcategory was visited and how many product pages followed it
+    subcategory_visited = False
+    product_pages = 0
+
+    # Iterate through the additional pages to add product pages if a subcategory was visited
+    for page in additional_pages:
+        if page.startswith('products/'):
+            if not subcategory_visited:
+                # If it's the first visit to a subcategory, add it to the journey
+                journey.append(page)
+                subcategory_visited = True
+                product_pages = np.random.randint(1, 7)  # Randomly choose the number of product pages (1-7)
+                for i in range(1, product_pages + 1):
+                    # Add product pages within the subcategory
+                    journey.append(f"{page}_{i}")
+            else:
+                # If a subcategory was visited previously, just increment the product page counter
+                product_pages -= 1
+                for i in range(1, product_pages + 1):
+                    # Add product pages within the subcategory
+                    journey.append(f"{page}_{i}")
+        else:
+            # If it's not a subcategory page, add it directly to the journey
+            journey.append(page)
+
+    return journey
 
 
 #------------------- Generating Channels ------------------------------------------------------------ --------------------------------
@@ -247,13 +320,15 @@ country_names = [random.choice(countries_by_continent[random_continent]) if coun
 visitor_ids = [generate_random_visitor_id() for _ in range(num_rows)]
 
 # Generating visit dates separately
-visit_dates = [generate_random_date(start_date, end_date) for _ in range(num_rows)]
+# visit_dates = [generate_random_date(start_date, end_date,campaign_months) for _ in range(num_rows)]
 
 # Generating continent names separately
 continent_names = [generate_random_continent_code(user_input_continents, user_input_weights) for _ in range(num_rows)]
 
 #------------------------------------------------------------- Building out Data Frame ---------------------------------------------
 
+
+#--- General User information
 data = {'Company Name' : company_names,
         'Continent': continent_names,
         'Country' : country_names,
@@ -261,16 +336,39 @@ data = {'Company Name' : company_names,
         }
 df = pd.DataFrame(data)
 
+#Generating random country
 df['Country'] = df['Continent'].apply(lambda x: random.choice(countries_by_continent.get(x, [])) if countries_by_continent.get(x) else None)
 
 # Generate random visit IDs for each row
 df['Visit ID'] = df.apply(generate_random_visit_ids, axis=1)
 
+#Checking if there was only one visit
 df['Has only one'] = df['Visit ID'].apply(has_only_one_visit)
-
+#Unpacking the list of visit ids
 df = df.explode('Visit ID')
 
-df['Visit Date'] = df.apply(lambda row: generate_random_date(start_date, end_date), axis=1)
+#Identifying User
+df['User Identification'] = df.apply(generate_random_useridentification,axis = 1)
+#Identifying Channel Group
+df['Channel Group'] = df.apply(lambda row:generate_random_channel_group(), axis=1)
+#Identifying Medium
+df['Channel Medium'] = df.apply(generate_random_medium, axis=1)
+#Device that was used
+df['Device'] = df.apply(lambda row: generate_random_device(),axis =1)
+
+# Apply the function to each row of the DataFrame
+df['Visit Date + Campaign'] = df.apply(lambda row: generate_single_date_with_campaign(row, start_date, end_date, campaign_months), axis=1)
+
+# Split 'Visit Date + Campaign' into 'Visit Date' and 'Campaign' columns
+df[['Visit Date', 'Campaign']] = df['Visit Date + Campaign'].str.split(',', expand=True)
+
+# Drop the original combined column
+df.drop(columns=['Visit Date + Campaign'], inplace=True)
+
+#Generating Web Pages / journey
+df['Web Pages'] = df.apply(lambda row:generate_random_website(), axis=1)
+
+df = df.explode('Web Pages')
 
 df['Visit Start Time'] = df.apply(lambda row: generate_random_time(),axis =1)
 
@@ -278,11 +376,7 @@ df['Time On Site'] = df.apply(lambda row: generate_random_timeonsite(),axis =1)
 
 df['Hits'] = df['Time On Site'].apply(generate_hits)
 
-# Generate random page views for each row based on the generated hits numbers
-df['Page Views'] = df.apply(generate_random_page_views, axis=1)
-
-# Calculate the left-over hits by subtracting page views from hits
-df['Left Over Hits'] = df['Hits'] - df['Page Views']
+df['Left Over Hits'] = df['Hits']
 
 # Generate random event button clicks for each row based on the left-over hits
 df['Event_buttonclick'] = df.apply(generate_random_event_buttonclick, axis=1)
@@ -300,27 +394,16 @@ df['Left Over Hits'] = df['Left Over Hits'] - df['Downloads']
 
 df['Video Views'] = df.apply(generate_random_videoviews,axis=1)
 
-#Generating random user identification
-
-df['User Identification'] = df.apply(generate_random_useridentification,axis = 1)
-
-df['Channel Group'] = df.apply(lambda row:generate_random_channel_group(), axis=1)
-
-df['Channel Medium'] = df.apply(generate_random_medium, axis=1)
-
-df['Device'] = df.apply(lambda row: generate_random_device(),axis =1)
-
-df['Web Pages'] = df.apply(lambda row:generate_random_website(), axis=1)
-
 #------------------------------------------------------------- Selecting Columns ---------------------------------------------
 
-selected_columns = ['Company Name','Continent','Country','Visit ID','Visitor ID','Channel Group','Channel Medium','User Identification','Visit Date','Visit Start Time','Time On Site','Hits','Page Views',
-                    'Event_buttonclick','Downloads','Video Views','Web Pages','Device']
+selected_columns = ['Company Name','Continent','Country','Visit ID','Visitor ID','Channel Group','Channel Medium','User Identification','Visit Date','Visit Start Time','Time On Site','Hits',
+                    'Event_buttonclick','Downloads','Video Views','Web Pages','Device','Campaign']
+# selected_columns = ['Company Name','Continent','Country','Visit ID','Visitor ID','Visit Date','Campaign','Web Pages']
 df = df.loc [:,selected_columns ]
 print(df)
 
 desktop_path = os.path.join(os.path.expanduser("~"),"Desktop")
-output_filename = "output.csv"
+output_filename = "output_test.csv"
 output_path = os.path.join(desktop_path,output_filename)
 
 df.to_csv(output_path, index=False)
