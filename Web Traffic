@@ -19,18 +19,21 @@ fk = Faker()
 # Global values for the dataset
 # Example usage:
 # Get user input for continents and weights
-user_input_continents = input("Enter continents (comma-separated, use the appropriate continent codes (AF, AS, EU, NA, OC, SA)): ").replace(" ", "").upper().split(',')  # I hated this, because I forgot that replace exists, praise Plina the goddess of rubber ducking
-user_input_weights = [float(weight) for weight in input("Enter weights (comma-separated, these are used to determine how often your choices get picked, must add up to 1): ").split(',')]
-num_rows = int(input("Enter the number of Rows you want to generate: "))
-lower_bound = int(input("Enter the lower bound for your random visits to the website: "))
-upper_bound = int(input("Enter the upper bound for your random visit to the website: "))
+# user_input_continents = input("Enter continents (comma-separated, use the appropriate continent codes (AF, AS, EU, NA, OC, SA)): ").replace(" ", "").upper().split(',')  # I hated this, because I forgot that replace exists, praise Plina the goddess of rubber ducking
+# user_input_weights = [float(weight) for weight in input("Enter weights (comma-separated, these are used to determine how often your choices get picked, must add up to 1): ").split(',')]
+# num_rows = int(input("Enter the number of Rows you want to generate: "))
+# lower_bound = int(input("Enter the lower bound for your random visits to the website: "))
+# upper_bound = int(input("Enter the upper bound for your random visit to the website: "))
 
 #Testing Values
-# user_input_continents = ['NA','EU','AS']
-# user_input_weights = [0.3,0.5,0.2]
-# num_rows = 100_000
-# lower_bound = 1
-# upper_bound = 100
+user_input_continents = ['NA','EU','AS']
+user_input_weights = [0.3,0.5,0.2]
+num_rows = 10_000
+lower_bound = 1
+upper_bound = 100
+
+
+
 
 
 # Date values for the dataset
@@ -49,10 +52,10 @@ null_indices = np.random.choice(num_rows, num_nulls, replace=False)
 # creating the dataset
 company_names = [fk.company() if i not in null_indices else None for i in range(num_rows)]
 
-#Defining Campaigns and their multipliers (they do absolutely nothing at the moment, as the generation should start from dates instead of visitor IDs)
+#Defining Campaigns
 campaign_months = {"March-Campaign":10,
                     "June-Campaign" : 5,
-                    "November-Campaign":20}
+                    "October-Campaign":20}
 
 #------------------------------------------------------------- main functions to build out fake skeleton ---------------------------------------------
 
@@ -72,7 +75,7 @@ def generate_random_visit_ids(row):
 
 #------------------- Dates and Time on site functions ----------------------------------------------------------------
 
-# The date generation works, I should also note that the multipliers do jack shit at the moment. For them to make sense the building blocks for data should start from dates instead of visitor IDs 
+
 def generate_single_date_with_campaign(row, start_date, end_date, campaign_months):
     if random.random() < 0.9:  # 90% chance of generating regular dates
         visit_date = fk.date_between_dates(date_start=start_date, date_end=end_date)
@@ -84,22 +87,21 @@ def generate_single_date_with_campaign(row, start_date, end_date, campaign_month
         campaign_multiplier =campaign_months[campaign_month]
 
         if campaign_month == "March-Campaign":
-            # Increase the likelihood of generating dates in March by 50%
+            # Increase the likelihood of generating dates in March
             start_date = datetime(2022, 3, 1)
-            end_date = datetime(2022, 3, 31)
+            end_date = datetime(2022, 4, 15)
         elif campaign_month == "June-Campaign":
-            # Increase the likelihood of generating dates in June by 100%
+            # Increase the likelihood of generating dates in June
             start_date = datetime(2023, 6, 1)
             end_date = datetime(2023, 7, 20)
-        elif campaign_month == "November-Campaign":
-            # Increase the likelihood of generating dates in November by 25%
-            start_date = datetime(2023, 11, 1)
-            end_date = datetime(2023, 11, 10)
+        elif campaign_month == "October-Campaign":
+            # Increase the likelihood of generating dates in October
+            start_date = datetime(2023, 10, 1)
+            end_date = datetime(2023, 11, 25)
 
         visit_date = fk.date_between_dates(date_start=start_date, date_end=end_date)
         if random.random()<campaign_multiplier:
             return f"{visit_date},{campaign_month}"
-            # return f"{visit_date},{campaign_name}"
         else:
             return str(visit_date)
 
@@ -108,21 +110,55 @@ def generate_single_date_with_campaign(row, start_date, end_date, campaign_month
 def generate_random_time():
     return fk.time(pattern="%H:%M:%S", end_datetime=None)
 
-# Function to generate random time on site following a normal distribution
-def generate_random_timeonsite():
-    mean = 75
-    std_dev = 50
-    value = np.random.normal(loc=mean, scale=std_dev)
-    return round(max(15, min(value, 500)))
-
 #------------------- Generation of HITS ------------------------------------------------------------------------------------------------
+# Define a dictionary mapping categories to mean and standard deviation values
+category_params = {
+    'main': [(0.3, 0.2), (150, 50)],
+    'aboutus': [(0.7, 0.4), (180, 60)],
+    'products': [(0.2,0.2),(130,40)],
+    'tools': [(0.6, 0.3), (160, 55)],
+    'electronics': [(0.4, 0.25), (140, 45)],
+    'misc': [(0.5, 0.35), (170, 50)]
+}
 
-# Function to generate hits based on time on site
-def generate_hits(time_on_site):
-    # Define parameters for the distribution
+# Function to generate random time on site following a normal distribution
+def generate_random_timeonsite(webpage):
+    # Extract the category and subcategory from the webpage identifier
+    parts = webpage.split('/')
+    category = parts[1] if len(parts) > 1 else parts[0]
     
-    mean_hits = 0.3  #adjust this if you want higher number of hits per time on site
-    std_dev_hits = 0.2 #adjust this if you want a higher variance around the "mean"
+    # Retrieve multiple sets of mean and standard deviation values for time on site based on the category
+    time_params_list = category_params.get(category, [(75, 50)])  # Default values
+    
+    # Use indexing to select the second tuple for time on site if there's a subcategory, else use the first tuple
+    mean_time, std_dev_time = time_params_list[1] if len(time_params_list) > 1 else time_params_list[0]
+    
+    # Extract the subcategory indicator
+    subcategory_indicator = parts[-1].split('_')[-1] if '_' in parts[-1] else None
+    
+    # Adjust time parameters based on the subcategory indicator
+    if subcategory_indicator is not None:
+        # Assuming subcategory indicators are numbers (_1, _2, ..., _7), you can map them to specific time variations
+        time_variation = int(subcategory_indicator) * 5  # Adjust this as needed
+        mean_time += time_variation
+        std_dev_time += time_variation / 1.5  # Adjust this as needed
+    
+    # Calculate the random time on site based on the normal distribution
+    time_on_site = np.random.normal(loc=mean_time, scale=std_dev_time)
+    
+    # Ensure the time on site is within a reasonable range
+    time_on_site = max(15, min(time_on_site, 500))
+    
+    return round(time_on_site)
+
+# Function to generate hits based on time on site and web page
+def generate_hits(time_on_site, webpage):
+    # Extract the category from the webpage identifier
+    category = webpage.split('/')[1] if '/' in webpage else webpage
+    # Retrieve multiple sets of mean and standard deviation values for hits based on the category
+    hit_params_list = category_params.get(category, [(0.3, 0.2)])  # Default values
+    # Use indexing to select the first tuple for hits
+    mean_hits, std_dev_hits = hit_params_list[0]
     
     # Calculate the number of hits based on a normal distribution
     hits = int(np.random.normal(loc=mean_hits, scale=std_dev_hits) * time_on_site)
@@ -131,18 +167,6 @@ def generate_hits(time_on_site):
     hits = max(1, hits)
     
     return hits
-
-# Function to generate random page views based on row-level hits
-def generate_random_page_views(row):
-    max_hits = row['Hits']
-    if 10 <= max_hits < 20:
-        return np.random.randint(2, 11)
-    elif max_hits >= 20:
-        return np.random.randint(4, 15)
-    elif max_hits <= 10:
-        return 1
-    else:
-        return np.random.randint(1, max(2, (max_hits // 2)) + 1)
 
 # Function to generate random event button clicks based on row-level leftover hits
 def generate_random_event_buttonclick(row):
@@ -372,9 +396,9 @@ df = df.explode('Web Pages')
 
 df['Visit Start Time'] = df.apply(lambda row: generate_random_time(),axis =1)
 
-df['Time On Site'] = df.apply(lambda row: generate_random_timeonsite(),axis =1)
+df['Time On Site'] = df.apply(lambda row: generate_random_timeonsite(row['Web Pages']), axis=1)
 
-df['Hits'] = df['Time On Site'].apply(generate_hits)
+df['Hits'] = df.apply(lambda row: generate_hits(row['Time On Site'],row['Web Pages']),axis =1)
 
 df['Left Over Hits'] = df['Hits']
 
@@ -393,6 +417,7 @@ df['Left Over Hits'] = df['Left Over Hits'] - df['Downloads']
 #Generating Video views based on leftover hits
 
 df['Video Views'] = df.apply(generate_random_videoviews,axis=1)
+
 
 #------------------------------------------------------------- Selecting Columns ---------------------------------------------
 
