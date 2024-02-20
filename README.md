@@ -1,4 +1,5 @@
-Caveat: This project was done to remember how to use Pandas library and utilize different libraries for random generation.
+Caveat: This project was done out of necessity to have some form of digital marketing data to play around with, as it is hard to find some online.
+------------------------------------------------------------
 
 The code ends up generating random digital marketing dataset (most of it is based on different distribution models with some weights here and there to skew the data a bit). 
 Documentation is inside the code and to use it you can copy and run it, either by changing the test values for a fixed one, or could use global values and uncomment that text to make it more "user input friendly".
