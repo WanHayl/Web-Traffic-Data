@@ -1,5 +1,7 @@
 Digital Marketing Data Generator
 ------------------------------------------------------------
+Welcome to my repository!
+
 Caveat 
 ----
 This was done in order to get a digital marketing dataset, which could be utilized in analysis or showcase products. 
