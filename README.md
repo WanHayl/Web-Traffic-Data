@@ -1,10 +1,15 @@
-Caveat: This project was done out of necessity to have some form of digital marketing data to play around with, as it is hard to find some online.
+Digital Marketing Data Generator
 ------------------------------------------------------------
+Caveat 
+----
+This was done in order to get a digital marketing dataset, which could be utilized in analysis or showcase products. 
 
-The code ends up generating random digital marketing dataset (most of it is based on different distribution models with some weights here and there to skew the data a bit). 
-Documentation is inside the code and to use it you can copy and run it, either by changing the test values for a fixed one, or could use global values and uncomment that text to make it more "user input friendly".
+Project Overview
+---
+* Utilizing different libraries such as pandas to generate data
+* Most of the code is done using different methods of random generation
+* Adding trends to the data based on campaigns, and other factors
 
-Anyone can use this and incorporate (if they want to)
 
 
 
