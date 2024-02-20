@@ -12,7 +12,14 @@ Project Overview
 * Most of the code is done using different methods of random generation
 * Adding trends to the data based on campaigns, and other factors
 
+Contributions
+--
+Feel free to submit any issues with the code or pull requests, if you have any suggestions or improvement they are always welcome.
 
+
+Usage
+--
+Anyone can use this code
 
 
 Data Dictionary:
