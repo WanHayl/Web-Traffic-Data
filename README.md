@@ -1,6 +1,6 @@
 Caveat: This project was done to remember how to use Pandas library and utilize different libraries for random generation.
 
-The code ends up generating random digital marketing dataset (most of it is based on normal distribution with some weights here and there to skew the data a bit). 
+The code ends up generating random digital marketing dataset (most of it is based on different distribution models with some weights here and there to skew the data a bit). 
 Documentation is inside the code and to use it you can copy and run it, either by changing the test values for a fixed one, or could use global values and uncomment that text to make it more "user input friendly".
 
 Anyone can use this and incorporate (if they want to)
